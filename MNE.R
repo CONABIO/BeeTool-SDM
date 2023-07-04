@@ -1,77 +1,106 @@
-# 
-# This code was developed by
-# - Juan M. Barrrios j.m.barrios@gmail.com
-# - Angela P. Cuervo-Robayo ancuervo@gmail.com
+#' BeeTool SDM script
+
+# Libraries ----
+library(magrittr)
+library(fs)
+library(readr)
+library(dplyr)
+library(purrr)
+library(stringr)
+library(terra)
+
+box::use(./sdm/utils)
+
+# Environment config ----
+set.seed(1049)
+
+# Load config
+config <- config::get()
+
+
+# Preprocessing ----
+
+## Load data ----
+if (config$regional$use_regional_cutoff) {
+  regional_data <- vect(config$regional$shapefile_region_path)
+}
+
+## Read args ----
+# args = commandArgs(trailingOnly = TRUE)
+# if (length(args) == 0) {
+#   stop("Please enter a single parameter (input file).\n", call. = FALSE)
+# } else if (length(args) == 1) {
+#   print(paste("Processing model for file ", args[1]))
+# } else {
+#   stop("Single parameter is needed (input file).\n", call. = FALSE)
+# }
 #
+# inputDataFile <- args[1]
 
-library("rgdal", quietly = TRUE)
-library("fuzzySim", quietly = TRUE)
-library("ENMeval", quietly = TRUE)
-library("ROCR", quietly = TRUE)
-library("magrittr", quietly = TRUE)
-library("readr", quietly = TRUE)
-library("dplyr", quietly = TRUE)
-library("tools", quietly = TRUE)
-library("raster", quietly = TRUE)
+input_data_file <- "./data/BOMHUN.csv"
 
-set.seed(1)
+output_folder <- input_data_file %>%
+  path_file() %>%
+  path_ext_remove()
 
-####DataFormating ####
-# Regionalization shapefile folder
-shapePath <- '../data/shapes/'
-shapeLayer <- "wwf_terr_ecos_a"
-regionalizacion <- rgdal::readOGR(shapePath, shapeLayer)
-
-# Raster covariables folder
-covarDataFolder <- '../data/covar_rasters'
-
-# Raster covariables folder where the model will be projected
-# IMPORTANT: The raster files on `covarDataFolder` and `covarAOIDataFolder` 
-# must have the same name in order to the model can be evaluated.
-covarAOIDataFolder <- '../data/covar_raster_PSC'
-
-args = commandArgs(trailingOnly = TRUE)
-if (length(args) == 0) {
-  stop("Please enter a single parameter (input file).\n", call. = FALSE)
-} else if (length(args) == 1) {
-  print(paste("Processing model for file ", args[1]))
-} else {
-  stop("Single parameter is needed (input file).\n", call. = FALSE)
+if (!dir_exists(output_folder)) {
+  dir_create(output_folder)
 }
 
-inputDataFile <- args[1]
-outputFolder <- inputDataFile %>%
-  basename %>%
-  file_path_sans_ext
+### Load occurrence data ----
+crs_wgs84 <- "+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"
+occs_data <- read_csv(input_data_file)
 
-if (!dir.exists(outputFolder)) {
-  dir.create(outputFolder, recursive = TRUE)
+# Coordinates columns are X and Y
+occs_data <- vect(
+  as.matrix(select(occs_data, X, Y)),
+  crs=crs_wgs84,
+  atts=as.data.frame(select(occs_data, -X, -Y))
+  )
+
+### Create records datasets ----
+# Sample records
+sampled_occs_data <- utils$sample_occurrences(
+  occs_data,
+  grid_res = config$spatial_resolution)
+
+utils$write_points(
+  sampled_occs_data,
+  path_join(c(output_folder, "data_clean.csv"))
+  )
+
+## Select regional data of interest ----
+regions_of_interest <- NULL
+if (config$regional$use_regional_cutoff) {
+  regions_of_interest <- extract(regional_data, sampled_occs_data)
 }
 
-####Cleaning duplicate records on a cell####
-crs.wgs84 <- sp::CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
-occsData <- readr::read_csv(inputDataFile)
-sp::coordinates(occsData) <- c("Dec_Long", "Dec_Lat")
-sp::proj4string(occsData) <- crs.wgs84
+## Load covariables ----
+if (config$covariables$is_worldclim) {
+  covar_file_list <- str_c(
+    config$covariables$path,
+    "/wc2.1_30s_",
+    config$covariables$variables,
+    ".tif")
+}
 
-occsData <- sp::remove.duplicates(occsData, zero=0.00833333333)
+covar_rasters <- rast(covar_file_list)
+if (!is.null(regions_of_interest)) {
+  covar_rasters <- crop(covar_rasters, ext(regions_of_interest))
+  gc()
+}
 
-write.csv(cbind(occsData@data, coordinates(occsData)),
-          file = file.path(outputFolder, "data_wo_duplicates.csv"),
-          row.names = FALSE)
+sampled_occs_data_covar <- terra::extract(
+  covar_rasters,
+  sampled_occs_data,
+  bind=TRUE)
 
-#### ENVIROMENTAL VARIABLES####
-covarFileList <- list_files_with_exts(covarDataFolder, "tif")
-enviromentalVariables <- raster::stack(covarFileList)
-
-covarAOIFileList <- list_files_with_exts(covarAOIDataFolder, "tif")
-enviromentalVariablesAOI <- raster::stack(covarAOIFileList)
 
 #### VARIABLES + PRESENCIAS####
 covarData <- raster::extract(enviromentalVariables, occsData)
 covarData <- cbind(occsData, covarData)
 
-completeDataCases <- covarData@data %>% 
+completeDataCases <- covarData@data %>%
   dplyr::select_(.dots=names(enviromentalVariables)) %>%
   complete.cases
 covarData <- covarData[completeDataCases, ]
@@ -125,11 +154,11 @@ sampleDataPoints <- sample.int(
 selectedValues <- rep(0, nrow(covarData)) %>% inset(sampleDataPoints, 1)
 
 covarData$isTrain <- selectedValues
-write.csv(cbind(covarData@data, coordinates(covarData)), file = file.path(outputFolder, 
+write.csv(cbind(covarData@data, coordinates(covarData)), file = file.path(outputFolder,
                                                                           paste0(outputFolder,
                                                                                  "_",
                                                                                  "presencias",
-                                                                                 ".csv")), 
+                                                                                 ".csv")),
           row.names = FALSE)
 # MAXENT calibration
 # We used ENMeval package to estimate optimal model complexity (Muscarrella et al. 2014)
@@ -140,7 +169,7 @@ occsCalibracion <- covarData %>%
   dplyr::select(Long, Lat)
 
 write.csv(occsCalibracion, file = file.path(outputFolder,paste0(outputFolder,
-                                                                "_","Calibracion",".csv")), 
+                                                                "_","Calibracion",".csv")),
           row.names = FALSE)
 
 occsValidacion <- covarData %>%
@@ -171,9 +200,9 @@ bg.dfbio <- raster::extract(enviromentalVariables, bg.df)
 bg.df<-as.data.frame(bg.df)
 bg.dfbio <- cbind(bg.df, bg.dfbio) %>% as.data.frame()
 
-write.csv(bg.dfbio, file = file.path(outputFolder, paste0(outputFolder, 
-                                                          "_", 
-                                                          "background_points", 
+write.csv(bg.dfbio, file = file.path(outputFolder, paste0(outputFolder,
+                                                          "_",
+                                                          "background_points",
                                                           ".csv")))
 
 #training background
@@ -211,10 +240,10 @@ write.csv(resultados_enmeval,
 sp.models_p<-sp.models@predictions
 
 dir.create(file.path(outputFolder, "Outputs_todos"))
-writeRaster(sp.models_p, file = file.path(outputFolder, "Outputs_todos/", paste0(outputFolder)), 
+writeRaster(sp.models_p, file = file.path(outputFolder, "Outputs_todos/", paste0(outputFolder)),
             suffix='names',
             format = "GTiff",
-            bylayer=TRUE, 
+            bylayer=TRUE,
             overwrite= TRUE)
 
 # delta_aic <- which(resultados_enmeval$delta.AICc == 0)
@@ -270,16 +299,16 @@ aucStatistcs <- function(model, models, env, occs, bgPoints) {
   env = env,
   occs = occs,
   bgPoints = bgPoints)
-  
+
   result <- data.frame(
     matrix(unlist(result), nrow = nrow(model), byrow = TRUE),
     stringsAsFactors = FALSE
   )
-  
+
   names(result) <- c("settings", "AUC")
-  
+
   result <- result %>% mutate(AUC = as.numeric(AUC))
-  
+
   return(result)
 }
 
@@ -308,10 +337,10 @@ predictAndSave <- function(model, models, data, prefix, occs) {
                                                      "_",
                                                      ".tif")),
                       overwrite = TRUE)
-  
+
   #Threshold prection using minimum traning (min) and 10 percentil (q10) values
   occsValues <- raster::extract(predictions, occs)
-  
+
   minValOcc <- min(occsValues, na.rm = TRUE)
   raster::writeRaster(reclassify(predictions,
                                  c(-Inf, minValOcc, 0, minValOcc, Inf, 1)),
@@ -323,7 +352,7 @@ predictAndSave <- function(model, models, data, prefix, occs) {
                                                      "_",
                                                      ".tif")),
                       overwrite = TRUE)
-  
+
   q10ValOcc <- quantile(occsValues, 0.1, na.rm = TRUE)
   raster::writeRaster(reclassify(predictions,
                                  c(-Inf, q10ValOcc, 0, q10ValOcc, Inf, 1)),
