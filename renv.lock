@@ -200,6 +200,21 @@
       ],
       "Hash": "94af08e0aa9675a16fadbb3aaaa90d2a"
     },
+    "fuzzySim": {
+      "Package": "fuzzySim",
+      "Version": "4.10.1",
+      "Source": "Repository",
+      "Repository": "R-Forge",
+      "Requirements": [
+        "R",
+        "graphics",
+        "methods",
+        "modEvA",
+        "stats",
+        "utils"
+      ],
+      "Hash": "ed548ae77fd03e43c487dc2782c0cdf2"
+    },
     "generics": {
       "Package": "generics",
       "Version": "0.1.3",
@@ -263,21 +278,6 @@
       ],
       "Hash": "9775eb076713f627c07ce41d8199d8f6"
     },
-    "lattice": {
-      "Package": "lattice",
-      "Version": "0.21-8",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Requirements": [
-        "R",
-        "grDevices",
-        "graphics",
-        "grid",
-        "stats",
-        "utils"
-      ],
-      "Hash": "0b8a6d63c8770f02a8b5635f3c431e6b"
-    },
     "lifecycle": {
       "Package": "lifecycle",
       "Version": "1.0.3",
@@ -300,6 +300,21 @@
         "R"
       ],
       "Hash": "7ce2733a9826b3aeb1775d56fd305472"
+    },
+    "modEvA": {
+      "Package": "modEvA",
+      "Version": "3.9.5",
+      "Source": "Repository",
+      "Repository": "R-Forge",
+      "Requirements": [
+        "R",
+        "grDevices",
+        "graphics",
+        "methods",
+        "stats",
+        "terra"
+      ],
+      "Hash": "527801a56cc8c45e2a9bd6b365a04db0"
     },
     "pillar": {
       "Package": "pillar",

@@ -1,13 +1,15 @@
 #' BeeTool SDM script
 
 # Libraries ----
+library(terra)
 library(magrittr)
 library(fs)
 library(readr)
 library(dplyr)
 library(purrr)
 library(stringr)
-library(terra)
+library(fuzzySim)
+
 
 box::use(./sdm/utils)
 
@@ -87,7 +89,6 @@ if (config$covariables$is_worldclim) {
 covar_rasters <- rast(covar_file_list)
 if (!is.null(regions_of_interest)) {
   covar_rasters <- crop(covar_rasters, ext(regions_of_interest))
-  gc()
 }
 
 sampled_occs_data_covar <- terra::extract(
@@ -95,18 +96,31 @@ sampled_occs_data_covar <- terra::extract(
   sampled_occs_data,
   bind=TRUE)
 
+## Tal vez sea necesario que se quiten los puntos que tengan valores NA
 
-#### VARIABLES + PRESENCIAS####
-covarData <- raster::extract(enviromentalVariables, occsData)
-covarData <- cbind(occsData, covarData)
+utils$write_points(
+  sampled_occs_data_covar,
+  path_join(c(output_folder, "data_clean_covar.csv"))
+  )
 
-completeDataCases <- covarData@data %>%
-  dplyr::select_(.dots=names(enviromentalVariables)) %>%
-  complete.cases
-covarData <- covarData[completeDataCases, ]
+# Variable selection ----
+# Add presence variable
+presence_col <- "presence"
+sampled_occs_data_covar[,presence_col] <- 1
 
+covar_names <- names(covar_rasters)
+
+covar_selection <- corSelect(
+  data = sampled_occs_data_covar,
+  sp.cols = presence_col,
+  var.cols = covar_names
+)
+
+# TODO: create a function to save results of corSelect
+
+# Old ----
 ####SELECCION DE VARIABLES####
-speciesCol <- match("Presence", names(occsData))
+# speciesCol <- match("Presence", names(occsData))
 varCols <- ncol(occsData) + 1
 
 correlacion <- corSelect(

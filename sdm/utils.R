@@ -33,3 +33,53 @@ write_points <- function(x, file, na = "", ...) {
 
   readr::write_csv(df, file, na=na, ...)
 }
+
+#' Create a report for a `fuzzySim::corSelect` output
+#' @export
+create_report <- function(my_list, output_file) {
+  # Extract elements from the list
+  high_correlations <- my_list$high.correlations
+  bivariate_significance <- my_list$bivariate.significance
+  excluded_vars <- my_list$excluded.vars
+  selected_vars <- my_list$selected.vars
+  selected_var_cols <- my_list$selected.var.cols
+  strongest_remaining_corr <- my_list$strongest.remaining.corr
+  remaining_multicollinearity <- my_list$remaining.multicollinearity
+
+  # Open a connection to the output file
+  file_conn <- file(output_file, "w")
+
+  # Write report content to the file in Markdown format
+  cat("# Report\n\n", file = file_conn)
+
+  cat("## High Correlations\n\n", file = file_conn)
+  utils::write.table(high_correlations, file = file_conn, row.names = FALSE, col.names = TRUE, sep = " | ", quote = FALSE)
+  cat("\n", file = file_conn)
+
+  cat("## Bivariate Significance\n\n", file = file_conn)
+  utils::write.table(bivariate_significance, file = file_conn, row.names = FALSE, col.names = TRUE, sep = " | ", quote = FALSE)
+  cat("\n", file = file_conn)
+
+  cat("## Excluded Variables\n\n", file = file_conn)
+  writeLines(excluded_vars, con = file_conn)
+  cat("\n", file = file_conn)
+
+  cat("## Selected Variables\n\n", file = file_conn)
+  writeLines(selected_vars, con = file_conn)
+  cat("\n", file = file_conn)
+
+  cat("## Selected Variable Columns\n\n", file = file_conn)
+  writeLines(as.character(selected_var_cols), con = file_conn)
+  cat("\n", file = file_conn)
+
+  cat("## Strongest Remaining Correlation\n\n", file = file_conn)
+  cat(strongest_remaining_corr, file = file_conn)
+  cat("\n\n", file = file_conn)
+
+  cat("## Remaining Multicollinearity\n\n", file = file_conn)
+  utils::write.table(remaining_multicollinearity, file = file_conn, row.names = FALSE, col.names = TRUE, sep = " | ", quote = FALSE)
+  cat("\n", file = file_conn)
+
+  # Close the file connection
+  close(file_conn)
+}
