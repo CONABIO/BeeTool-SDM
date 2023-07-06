@@ -35,6 +35,9 @@ write_points <- function(x, file, na = "", ...) {
 }
 
 #' Create a report for a `fuzzySim::corSelect` output
+#' @param results `corSelect` result list
+#' @param output_file path to save the result report
+#' @return None.
 #' @export
 create_report <- function(my_list, output_file) {
   # Extract elements from the list
@@ -53,11 +56,11 @@ create_report <- function(my_list, output_file) {
   cat("# Report\n\n", file = file_conn)
 
   cat("## High Correlations\n\n", file = file_conn)
-  utils::write.table(high_correlations, file = file_conn, row.names = FALSE, col.names = TRUE, sep = " | ", quote = FALSE)
+  writeLines(knitr::kable(high_correlations, "pipe"), con = file_conn)
   cat("\n", file = file_conn)
 
   cat("## Bivariate Significance\n\n", file = file_conn)
-  utils::write.table(bivariate_significance, file = file_conn, row.names = FALSE, col.names = TRUE, sep = " | ", quote = FALSE)
+  writeLines(knitr::kable(bivariate_significance, "pipe"), con = file_conn)
   cat("\n", file = file_conn)
 
   cat("## Excluded Variables\n\n", file = file_conn)
@@ -77,7 +80,7 @@ create_report <- function(my_list, output_file) {
   cat("\n\n", file = file_conn)
 
   cat("## Remaining Multicollinearity\n\n", file = file_conn)
-  utils::write.table(remaining_multicollinearity, file = file_conn, row.names = FALSE, col.names = TRUE, sep = " | ", quote = FALSE)
+  writeLines(knitr::kable(remaining_multicollinearity, "pipe"), con = file_conn)
   cat("\n", file = file_conn)
 
   # Close the file connection
