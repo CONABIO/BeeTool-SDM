@@ -9,6 +9,7 @@ library(dplyr)
 library(purrr)
 library(stringr)
 library(fuzzySim)
+library(ENMeval)
 
 
 box::use(./sdm/utils)
@@ -75,6 +76,10 @@ utils$write_points(
 regions_of_interest <- NULL
 if (config$regional$use_regional_cutoff) {
   regions_of_interest <- extract(regional_data, sampled_occs_data)
+  writeVector(
+    regions_of_interest,
+    path_join(c(output_folder, "region_of_interest.shp")),
+    overwrite=TRUE)
 }
 
 ## Load covariables ----
@@ -88,7 +93,7 @@ if (config$covariables$is_worldclim) {
 
 covar_rasters <- rast(covar_file_list)
 if (!is.null(regions_of_interest)) {
-  covar_rasters <- crop(covar_rasters, ext(regions_of_interest))
+  covar_rasters <- crop(covar_rasters, regions_of_interest)
 }
 
 sampled_occs_data_covar <- terra::extract(
@@ -116,132 +121,86 @@ covar_selection <- corSelect(
   var.cols = covar_names
 )
 
-# TODO: create a function to save results of corSelect
+selected_vars <- covar_selection$selected.vars
+utils$create_report(covar_selection, "selection_variables_report.md")
 
-# Old ----
-####SELECCION DE VARIABLES####
-# speciesCol <- match("Presence", names(occsData))
-varCols <- ncol(occsData) + 1
+selected_covar_rasters <- covar_rasters[[selected_vars]]
 
-correlacion <- corSelect(
-  data = covarData@data,
-  sp.cols = speciesCol,
-  var.cols = varCols:ncol(covarData),
-  cor.thresh = 0.8,
-  use = "pairwise.complete.obs"
+# Create train/test set ----
+sampled_row <- sample.int(
+  nrow(sampled_occs_data_covar),
+  size = floor(0.7*nrow(sampled_occs_data_covar))
 )
 
-select_var <- correlacion$selected.vars
-write(select_var, file = file.path(outputFolder, "selected_variables.txt"))
+sampled_occs_data_covar$train = FALSE
+sampled_occs_data_covar[sampled_row, 'train'] = TRUE
 
-selectedVariables <- enviromentalVariables[[select_var]]
-selectedVariablesAOI <- enviromentalVariablesAOI[[select_var]]
+utils$write_points(
+  sampled_occs_data_covar,
+  path_join(c(output_folder, "data_clean_covar.csv"))
+  )
 
-# Selects the M of the species, base on Olson´s ecoregions
-# Download: https://www.worldwildlife.org/publications/terrestrial-ecoregions-of-the-world
-# Intersects the occurrence data with polygons
-ecoregionsOfInterest <- sp::over(occsData, regionalizacion) %>%
-  filter(!is.na(ECO_ID))
+#Pseudo-absent data
 
-idsEcoRegions <- unique(ecoregionsOfInterest$ECO_ID)
-polygonsOfInterest <- regionalizacion[regionalizacion$ECO_ID %in% idsEcoRegions, ]
-writeOGR(polygonsOfInterest, layer = 'ecoregionsOI', outputFolder, driver="ESRI Shapefile")
+background_points <- spatSample(
+  selected_covar_rasters,
+  5000,
+  "random",
+  na.rm=TRUE,
+  as.points=TRUE
+)
 
-# Mask present rasters with ecoregions of interest
-selectedVariablesCrop <- raster::crop(selectedVariables, polygonsOfInterest)
-env <- raster::mask(selectedVariablesCrop,
-                    polygonsOfInterest) #Species variables delimited by M
+sampled_row <- sample.int(
+  nrow(background_points),
+  size = floor(0.7*nrow(background_points))
+)
 
-dir.create(file.path(outputFolder, "Presente"))
-writeRaster(env,
-            file.path(outputFolder, "Presente/.tif"),
-            bylayer = T, suffix='names',
-            overwrite = TRUE)
+background_points$train = FALSE
+background_points[sampled_row, 'train'] = TRUE
+
+utils$write_points(
+  background_points,
+  path_join(c(output_folder, "background_data.csv"))
+)
+
+idx_occs_train <- which(sampled_occs_data_covar$train==TRUE)
+occs_train <- sampled_occs_data_covar[idx_occs_train, c(selected_vars, "presence")]
+
+occs_train <- as.data.frame(occs_train, geom="XY") %>%
+  select(x,y) %>%
+  rename("lon"=x, "lat"=y)
+
+
+idx_bg_train <- which(background_points$train == TRUE)
+bg_train <- background_points[idx_bg_train, selected_vars]
+bg_train <- as.data.frame(bg_train, geom="XY") %>%
+  select(x,y) %>%
+  rename("lon"=x, "lat"=y)
+
+env <- raster::stack(selected_covar_rasters)
+
+# tune_args <- list(
+#   fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
+#   rm = seq(0.5, 4, 0.5)
+# )
+tune_args <- list(
+  fc = c("L", "LQ"),
+  rm = seq(0.5, 1, 0.5)
+)
+# Old ----
 
 #### Calibration ####
-# Divides your data into trainining and test data sets. 70/30 %
-sampleDataPoints <- sample.int(
-  nrow(covarData),
-  size = floor(0.7*nrow(covarData))
-)
-
-selectedValues <- rep(0, nrow(covarData)) %>% inset(sampleDataPoints, 1)
-
-covarData$isTrain <- selectedValues
-write.csv(cbind(covarData@data, coordinates(covarData)), file = file.path(outputFolder,
-                                                                          paste0(outputFolder,
-                                                                                 "_",
-                                                                                 "presencias",
-                                                                                 ".csv")),
-          row.names = FALSE)
 # MAXENT calibration
 # We used ENMeval package to estimate optimal model complexity (Muscarrella et al. 2014)
 # Modeling process, first separate the calibration and validation data
-occsCalibracion <- covarData %>%
-  as.data.frame() %>%
-  dplyr::filter(isTrain == 1) %>%
-  dplyr::select(Long, Lat)
-
-write.csv(occsCalibracion, file = file.path(outputFolder,paste0(outputFolder,
-                                                                "_","Calibracion",".csv")),
-          row.names = FALSE)
-
-occsValidacion <- covarData %>%
-  as.data.frame() %>%
-  dplyr::filter(isTrain == 0) %>%
-  dplyr::select(Long, Lat)
-
-write.csv(occsValidacion, file = file.path(outputFolder,paste0(outputFolder,
-                                                               "_","Validacion",".csv")),
-          row.names = FALSE)
-
-# Background
-bg.df <- dismo::randomPoints(env[[1]], n = 10000) %>% as.data.frame()
-
-#Divide backgeound into train and test
-sample.bg <- sample.int(
-  nrow(bg.df),
-  size = floor(0.7*nrow(bg.df))
-)
-selectedValues.bg <- rep(0, nrow(bg.df)) %>% inset(sample.bg, 1)
-
-bg.df$isTrain <- selectedValues.bg
-
-sp::coordinates(bg.df) <- c("x", "y")
-sp::proj4string(bg.df) <- crs.wgs84
-bg.dfbio <- raster::extract(enviromentalVariables, bg.df)
-
-bg.df<-as.data.frame(bg.df)
-bg.dfbio <- cbind(bg.df, bg.dfbio) %>% as.data.frame()
-
-write.csv(bg.dfbio, file = file.path(outputFolder, paste0(outputFolder,
-                                                          "_",
-                                                          "background_points",
-                                                          ".csv")))
-
-#training background
-bg.df.cal <- bg.df %>%
-  dplyr::filter(isTrain == 1) %>%
-  dplyr::select(x, y)
-write.csv(bg.df.cal, file = file.path(outputFolder,paste0(outputFolder,
-                                                          "_","back_calibracion",".csv")),
-          row.names = FALSE)
-
-#testing back
-bg.df.val <- bg.df %>%
-  dplyr::filter(isTrain == 0) %>%
-  dplyr::select(x, y)
-write.csv(bg.df.val, file = file.path(outputFolder,paste0(outputFolder,
-                                                          "_","back_validacion",".csv")),
-          row.names = FALSE)
 
 
 # ENMeval
-sp.models <- ENMevaluate(occsCalibracion, env, bg.df.cal, RMvalues = seq(0.5, 4, 0.5),
-                         fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
-                         method = "randomkfold", kfolds = 4, bin.output = TRUE,
+sp.models <- ENMevaluate(occs_train, env, bg_train, tune.args = tune_args,
+                         partitions = "randomkfold", partition.settings	= list(kfolds=4),
+                         bin.output = TRUE,
                          parallel = TRUE, numCores = parallel::detectCores()-1,
-                         updateProgress = TRUE)
+                         algorith="maxent.jar")
 
 resultados_enmeval <- sp.models@results
 

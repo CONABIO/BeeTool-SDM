@@ -26,10 +26,7 @@ sample_occurrences <- function(occs, grid_res = 1) {
 #' @param ... parameters forwarded to a `readr::write_csv` function
 #' @export
 write_points <- function(x, file, na = "", ...) {
-  coords <- terra::crds(x)
-  df <- dplyr::bind_cols(
-    as.data.frame(x),
-    coords)
+  df <- as.data.frame(x, geom="XY")
 
   readr::write_csv(df, file, na=na, ...)
 }
