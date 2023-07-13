@@ -83,3 +83,32 @@ create_report <- function(my_list, output_file) {
   # Close the file connection
   close(file_conn)
 }
+
+
+#' Save predicted species distribution (raw output)
+#'
+#' @param tune_settings tune settings vector to save
+#' @param predictions predictions slot of a ENMevaluation object
+#' @param output_path path to write rasters, it must exist
+#' @param prefix output file prefix. Output files names will be `prefix+tune_settings`
+#' @return None
+#' @export
+save_raster_with_settings <- function(tune_settings, predictions, output_path, prefix) {
+  raster::writeRaster(predictions[[tune_settings]],
+                      fs::path_ext_set(
+                        fs::path_join(c(output_path,
+                                        stringr::str_c(prefix,tune_settings))),
+                        'tif'),
+                      overwrite = TRUE)
+}
+
+
+#' Save binary sdm
+#'
+#' @param tune_setting tune setting
+#' @param threshold_name
+#' @param min_presence_value minimum presence value
+#' @param output_path output folder name
+#' @return None
+#' @export
+save_binary_prediction <- function(tune_setting, threshold_name, min_presence_value, output_path) {}
