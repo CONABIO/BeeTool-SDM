@@ -1,14 +1,29 @@
 default:
-  spatial_resolution: 0.00833 # resolution in degree units
+  base_output_path: ./output
+  spatial_resolution: 0.04167 # resolution in degree units
   covariables:
     path: ./data/worldclim2_bio
     is_worldclim: true
     variables:
       - bio_1
+      - bio_2
       - bio_3
       - bio_4
       - bio_5
+      - bio_6
+      - bio_7
+      - bio_8
+      - bio_9
+      - bio_10
+      - bio_11
+      - bio_12
+      - bio_13
+      - bio_14
+      - bio_15
+      - bio_16
+      - bio_17
+      - bio_18
+      - bio_19
   regional:
     use_regional_cutoff: true
-    shapefile_region_path: ./data/wwf_ecoregions/wwf_terr_ecos.shp
-    # shapefile-region-layer: "wwf_terr_ecos"
+    shapefile_region_path: ./data/ecoregions/Ecoregions2017_America.shp

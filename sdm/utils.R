@@ -108,7 +108,20 @@ save_raster_with_settings <- function(tune_settings, predictions, output_path, p
 #' @param tune_setting tune setting
 #' @param threshold_name
 #' @param min_presence_value minimum presence value
+#' @param predictions predictions object from ENMEvaluate
 #' @param output_path output folder name
 #' @return None
 #' @export
-save_binary_prediction <- function(tune_setting, threshold_name, min_presence_value, output_path) {}
+save_binary_prediction <- function(tune_setting, threshold_name, min_presence_value, predictions, output_path) {
+  r_orig <- predictions[[tune_setting]]
+  output_fn <- stringr::str_c("present_binary_",
+                                threshold_name,
+                                ".tif")
+  print(output_fn)
+  raster::writeRaster(
+    raster::reclassify(r_orig, c(-Inf, min_presence_value, NA, min_presence_value, Inf, 1)),
+    fs::path_join(c(output_path,
+                    output_fn)),
+    overwrite=TRUE
+  )
+}
