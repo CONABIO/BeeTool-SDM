@@ -27,3 +27,8 @@ default:
   regional:
     use_regional_cutoff: true
     shapefile_region_path: ./data/ecoregions/Ecoregions2017_America.shp
+  future_projection_config:
+    aoi: ./data/aoi/norteamerica.shp
+    rasters:
+      - ./data/future_worldclim/wc2.1_2.5m_bioc_BCC-CSM2-MR_ssp370_2021-2040.tif
+      - ./data/future_worldclim/wc2.1_2.5m_bioc_BCC-CSM2-MR_ssp245_2021-2040.tif
