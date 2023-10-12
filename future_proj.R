@@ -4,6 +4,8 @@ library(readr)
 library(dplyr)
 library(magrittr)
 
+options(java.parameters = "-Xmx8000m")
+
 # Load config
 config <- config::get()
 
@@ -15,28 +17,37 @@ future_conditions <- config %$%
   rasters %>%
   purrr::map(rast)
 
-aoi <- config %$%
+model_names <- config %$%
   future_projection_config %$%
-  aoi %>%
-  vect
+  rasters %>%
+  stringr::str_split('_') %>%
+  purrr::map_chr(\(x) paste(x[5], x[6], sep = "-"))
 
-future_conditions <- future_conditions %>%
-  purrr::map(crop, aoi)
+# aoi <- config %$%
+#   future_projection_config %$%
+#   aoi %>%
+#   vect
+
 
 # Binary models processing ----
 BASEPATH <- fs::as_fs_path("./entrega/")
 RESULT_CSV <- "enmeval_results.csv"
 MODEL_FILE <- "Maxent_models.Rds"
+AOI <- "region_of_interest.shp"
 
 binary_sp_smd <- sdm_info_data %>%
-  filter(is_binary) %>%
+  filter(!is_binary) %>%
   pull(spCode) %>%
   unique()
 result_path <- fs::path(BASEPATH, binary_sp_smd)
 
-enm_result <- fs::path(result_path[1], RESULT_CSV) %>%
+enm_result <- fs::path(result_path[2], RESULT_CSV) %>%
   read_csv()
-enm_model <- fs::path(result_path[1], MODEL_FILE)
+enm_model <- fs::path(result_path[2], MODEL_FILE)
+aoi <- fs::path(result_path[2], AOI) %>% vect()
+
+future_conditions <- future_conditions %>%
+  purrr::map(crop, aoi)
 
 model_bestAICc <- enm_result %>%
   filter(delta.AICc == 0) %>%
@@ -52,6 +63,10 @@ selected_vars_id <- bio_vars %>%
   stringr::str_c("_", .) %>%
   stringr::str_c(collapse = "|")
 
+threshold <- maxent_model@presence %>%
+  predict(maxent_model, .) %>%
+  quantile(c(0.1))
+
 select_masks <- future_conditions %>%
   purrr::map(names) %>%
   purrr::map(stringr::str_ends, pattern=selected_vars_id)
@@ -62,9 +77,20 @@ future_conditions <- future_conditions %>%
 future_conditions %>%
   purrr::map(terra::set.names, bio_vars)
 
-# t <- future_conditions %>%
-#   dismo::predict(maxent_model, .)
-#
+projections <- future_conditions %>%
+  purrr::map(\(x) dismo::predict(maxent_model, x))
+
+
+projections <- list()
+
+for (i in length(future_conditions)) {
+  projections[i] <- dismo::predict(maxent_model, future_conditions[[i]])
+}
+
+# # TODO ----
+# [ ] Decidir que aoi tomar
+# [ ] Salvar raster a archivo
+
 # # Draft ----
 # fitted_models <- "/home/jbarrios/Projects/BeeTool-Bee_DM/done/single_model/BOMHUN/Maxent_models.Rds" %>%
 #   read_rds()
