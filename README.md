@@ -26,7 +26,7 @@ the script as follows:
 $ Rscript preprocessing.R {occurrence_file.csv}
 ```
 
-> `[!TIP]
+> [!TIP]
 > Naming the occurrence file with a species code is suggested to ensure clear 
 > information in the output files.
 
