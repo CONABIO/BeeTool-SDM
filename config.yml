@@ -2,31 +2,33 @@ default:
   base_output_path: ./output
   spatial_resolution: 0.04167 # resolution in degree units
   covariables:
-    path: ./data/worldclim2_bio
-    is_worldclim: true
-    variables:
-      - bio_1
-      - bio_2
-      - bio_3
-      - bio_4
-      - bio_5
-      - bio_6
-      - bio_7
-      - bio_8
-      - bio_9
-      - bio_10
-      - bio_11
-      - bio_12
-      - bio_13
-      - bio_14
-      - bio_15
-      - bio_16
-      - bio_17
-      - bio_18
-      - bio_19
+    - path: ./data/worldclim
+      is_worldclim: true
+      variables:
+        - bio_1
+        - bio_2
+        - bio_3
+        - bio_4
+        - bio_5
+        - bio_6
+        - bio_7
+        - bio_8
+        - bio_9
+        - bio_10
+        - bio_11
+        - bio_12
+        - bio_13
+        - bio_14
+        - bio_15
+        - bio_16
+        - bio_17
+        - bio_18
+        - bio_19
+    - path: ./data/elevation/wc2.1_2.5m_elev.tif
+      is_worldclim: false
   regional:
     use_regional_cutoff: true
-    shapefile_region_path: ./data/ecoregions/Ecoregions2017_America.shp
+    shapefile_region_path: ./data/regions/wwf_terr_ecos.shp
   future_projection_config:
     aoi: ./data/aoi/norteamerica.shp
     rasters:

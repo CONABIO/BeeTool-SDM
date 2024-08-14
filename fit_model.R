@@ -43,7 +43,7 @@ if (length(args) == 0) {
 }
 
 clean_occ_dir <- args[1]
-# clean_occ_dir <- "./output/BOMIMP"
+# clean_occ_dir <- "./output/BOMEPH/"
 
 ## Loading preprocessed files
 crs_wgs84 <- "+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"
@@ -60,12 +60,18 @@ if (config$regional$use_regional_cutoff) {
 }
 
 ## Load covars ----
-if (config$covariables$is_worldclim) {
-  covar_file_list <- str_c(
-    config$covariables$path,
-    "/wc2.1_2.5m_",
-    config$covariables$variables,
-    ".tif")
+covar_file_list <- c()
+for (covar in config$covariables) {
+  if (covar$is_worldclim) {
+    wc_file_list <- str_c(
+      covar$path,
+      "/wc2.1_2.5m_",
+      covar$variables,
+      ".tif")
+    covar_file_list <- c(covar_file_list, wc_file_list)
+  } else {
+    covar_file_list <- c(covar_file_list, covar$path)
+  }
 }
 
 covar_rasters <- rast(covar_file_list)
