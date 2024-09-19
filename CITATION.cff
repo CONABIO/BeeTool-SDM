@@ -1,0 +1,34 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: BeeTool - Bee potential distribution modeling scripts
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Juan M
+    family-names: Barrios
+    email: juan.barrios@conabio.gob.mx
+    affiliation: CONABIO
+    orcid: 'https://orcid.org/0000-0003-1526-3316'
+  - given-names: 'Carlos '
+    family-names: Cultid
+    email: carlos.cultid@inecol.mx
+    affiliation: INECOL - Bajío
+  - given-names: Oscar
+    family-names: Martínez
+    email: saldeift@gmail.com
+    affiliation: ECOSUR - San Cristobal de las Casas
+  - given-names: Remy
+    family-names: Vandame
+    email: remy@ecosur.mx
+    affiliation: ECOSUR - San Cristobal de las Casas
+repository-code: 'https://github.com/CONABIO/BeeTool-SDM'
+abstract: >+
+  This repository has all scripts necessary to run create
+  the species distribution models (SDM) for the bee species.
+
+license: MIT
+commit: b25029977f63962811021819b718ce49c74299c0
